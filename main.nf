@@ -93,7 +93,7 @@ process ALIGN_AND_SORT {
 
     input:
     tuple val(meta), path(fastq_1), path(fastq_2)
-    path ref_fasta
+    path reference_fa
     path bwa_indices
 
     output:
@@ -103,7 +103,7 @@ process ALIGN_AND_SORT {
     def rg_string = "@RG\\tID:${meta.sampleid}\\tPL:ILLUMINA\\tSM:${meta.sampleid}\\tLB:${meta.sampleid}_lib"
     def sort_threads = Math.max(1, (task.cpus / 4) as int)
     """
-    bwa mem -Y -K 100000000 -t ${task.cpus} -R "${rg_string}" ${ref_fasta} ${fastq_1} ${fastq_2} | \
+    bwa mem -Y -K 100000000 -t ${task.cpus} -R "${rg_string}" ${reference_fa} ${fastq_1} ${fastq_2} | \
     samtools sort -@ ${sort_threads} -m 4G -T \$PWD/${meta.sampleid}_tmp -o ${meta.sampleid}_sorted.bam -
     """
 }
@@ -116,7 +116,7 @@ process MARK_DUPLICATES_AND_CRAM {
 
     input:
     tuple val(meta), path(sorted_bam)
-    path ref_fasta
+    path reference_fa
     path ref_fai
 
     output:
@@ -134,7 +134,7 @@ process MARK_DUPLICATES_AND_CRAM {
         O=dedup.bam \
         M=${meta.sampleid}_dedup_metrics.txt
         
-    samtools view -@ ${task.cpus} -C -T ${ref_fasta} -o ${meta.sampleid}.cram dedup.bam
+    samtools view -@ ${task.cpus} -C -T ${reference_fa} -o ${meta.sampleid}.cram dedup.bam
     samtools index ${meta.sampleid}.cram
     samtools flagstat ${meta.sampleid}.cram > ${meta.sampleid}_flagstat.txt
     rm dedup.bam
@@ -170,14 +170,14 @@ workflow {
         }
         .groupTuple(by: 0)
 
-    ref_fasta_file = file(params.ref_fasta)
-    BWA_INDEX(ref_fasta_file)
-    SAMTOOLS_FAIDX(ref_fasta_file)
+    reference_fa_file = file(params.reference_fa)
+    BWA_INDEX(reference_fa_file)
+    SAMTOOLS_FAIDX(reference_fa_file)
 
     CONCAT_FASTQ(reads_ch)
     ADAPTER_TRIM(CONCAT_FASTQ.out)
-    ALIGN_AND_SORT(ADAPTER_TRIM.out.reads, ref_fasta_file, BWA_INDEX.out)
-    MARK_DUPLICATES_AND_CRAM(ALIGN_AND_SORT.out, ref_fasta_file, SAMTOOLS_FAIDX.out)
+    ALIGN_AND_SORT(ADAPTER_TRIM.out.reads, reference_fa_file, BWA_INDEX.out)
+    MARK_DUPLICATES_AND_CRAM(ALIGN_AND_SORT.out, reference_fa_file, SAMTOOLS_FAIDX.out)
 
     multiqc_input_ch = channel.empty()
         .mix(
