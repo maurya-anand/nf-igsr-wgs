@@ -1,10 +1,10 @@
-REF_DIR = ../references
+REF_DIR = ../reference
 FASTA = $(REF_DIR)/GRCh38_full_analysis_set_plus_decoy_hla.fa
 ALT = $(FASTA).alt
 
-.PHONY: all clean index index-singularity
+.PHONY: reference clean index index-singularity
 
-all: $(FASTA) $(ALT)
+reference: $(FASTA) $(ALT)
 
 $(REF_DIR):
 	mkdir -p $(REF_DIR)
