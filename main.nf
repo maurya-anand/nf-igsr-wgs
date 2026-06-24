@@ -1,0 +1,192 @@
+nextflow.enable.dsl = 2
+
+
+process BWA_INDEX {
+    tag "${fasta.name}"
+    container 'community.wave.seqera.io/library/bwa:0.7.19--f40bc2b40f6d8142'
+
+    input:
+    path fasta
+
+    output:
+    path "${fasta}.*"
+
+    script:
+    """
+    bwa index ${fasta}
+    """
+}
+
+process SAMTOOLS_FAIDX {
+    tag "${fasta.name}"
+    container 'community.wave.seqera.io/library/samtools:1.23.1--4a697684755218e0'
+
+    input:
+    path fasta
+
+    output:
+    path "${fasta}.fai"
+
+    script:
+    """
+    samtools faidx ${fasta}
+    """
+}
+
+process CONCAT_FASTQ {
+    tag "${meta.sampleid}"
+    container 'community.wave.seqera.io/library/samtools:1.23.1--4a697684755218e0'
+
+    input:
+    tuple val(meta), path(fqs_1), path(fqs_2)
+
+    output:
+    tuple val(meta), path("${meta.sampleid}_1.fastq.gz"), path("${meta.sampleid}_2.fastq.gz")
+
+    script:
+    def fq1_list = fqs_1 instanceof List ? fqs_1.sort().join(' ') : fqs_1
+    def fq2_list = fqs_2 instanceof List ? fqs_2.sort().join(' ') : fqs_2
+    """
+    cat ${fq1_list} > ${meta.sampleid}_1.fastq.gz
+    cat ${fq2_list} > ${meta.sampleid}_2.fastq.gz
+    """
+}
+
+process ADAPTER_TRIM {
+    tag "$meta.sampleid"
+    container 'community.wave.seqera.io/library/trim-galore:2.2.0--7c4d34af422b845e'
+
+    publishDir '${params.outdir}/${meta.sampleid}/fastqc', mode: 'copy', pattern: "*_fastqc.{zip,html}"
+    publishDir '${params.outdir}/${meta.sampleid}/trim_galore', mode: 'copy', pattern: "*trimming_report.txt"
+
+    input:
+    tuple val(meta), path(fastq_1), path(fastq_2)
+
+    output:
+    tuple val(meta), path("${meta.sampleid}_1_trimmed.fq.gz"), path("${meta.sampleid}_2_trimmed.fq.gz"), emit: reads
+    path "*_fastqc.{zip,html}", emit: fastqc
+    path "*_trimming_report.txt", emit: log
+
+    script:
+    def fq1_base = fastq_1.toString().tokenize('.')[0]
+    def fq2_base = fastq_2.toString().tokenize('.')[0]
+    """
+    set -euo pipefail
+    export TMPDIR=\$PWD
+    total_threads=${task.cpus}
+    trim_galore \
+        --paired \
+        --illumina \
+        --fastqc \
+        --cores \${total_threads} \
+        ${fastq_1} ${fastq_2}
+    mv ${fq1_base}_val_1.fq.gz ${meta.sampleid}_1_trimmed.fq.gz
+    mv ${fq2_base}_val_2.fq.gz ${meta.sampleid}_2_trimmed.fq.gz
+    mv ${fastq_1}_trimming_report.txt ${meta.sampleid}_1_trimming_report.txt
+    mv ${fastq_2}_trimming_report.txt ${meta.sampleid}_2_trimming_report.txt
+    """
+}
+
+process ALIGN_AND_SORT {
+    tag "${meta.sampleid}"
+    container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
+
+    input:
+    tuple val(meta), path(fastq_1), path(fastq_2)
+    path ref_fasta
+    path bwa_indices
+
+    output:
+    tuple val(meta), path("${meta.sampleid}_sorted.bam")
+
+    script:
+    def rg_string = "@RG\\tID:${meta.sampleid}\\tPL:ILLUMINA\\tSM:${meta.sampleid}\\tLB:${meta.sampleid}_lib"
+    def sort_threads = Math.max(1, (task.cpus / 4) as int)
+    """
+    bwa mem -Y -K 100000000 -t ${task.cpus} -R "${rg_string}" ${ref_fasta} ${fastq_1} ${fastq_2} | \
+    samtools sort -@ ${sort_threads} -m 4G -T \$PWD/${meta.sampleid}_tmp -o ${meta.sampleid}_sorted.bam -
+    """
+}
+
+process MARK_DUPLICATES_AND_CRAM {
+    tag "${meta.sampleid}"
+    container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
+    publishDir '${params.outdir}/${meta.sampleid}', mode: 'copy', pattern: '*.cram*'
+    publishDir '${params.outdir}/${meta.sampleid}/qc', mode: 'copy', pattern: '*.txt'
+
+    input:
+    tuple val(meta), path(sorted_bam)
+    path ref_fasta
+    path ref_fai
+
+    output:
+    tuple val(meta), path("${meta.sampleid}.cram"), path("${meta.sampleid}.cram.crai"), emit: cram
+    path "${meta.sampleid}_dedup_metrics.txt", emit: dedup_metrics
+    path "${meta.sampleid}_flagstat.txt", emit: flagstat
+
+    script:
+    def memory_gb = task.memory ? task.memory.toGiga() - 2 : 6
+    """
+    picard -Xmx${memory_gb}g MarkDuplicates \
+        MAX_RECORDS_IN_RAM=2000000 \
+        VALIDATION_STRINGENCY=SILENT \
+        I=${sorted_bam} \
+        O=dedup.bam \
+        M=${meta.sampleid}_dedup_metrics.txt
+        
+    samtools view -@ ${task.cpus} -C -T ${ref_fasta} -o ${meta.sampleid}.cram dedup.bam
+    samtools index ${meta.sampleid}.cram
+    samtools flagstat ${meta.sampleid}.cram > ${meta.sampleid}_flagstat.txt
+    rm dedup.bam
+    """
+}
+
+process MULTIQC {
+    tag "multiqc"
+    container 'community.wave.seqera.io/library/multiqc:1.35--1ad1ebcf6f617695'
+    publishDir '${params.outdir}/multiqc', mode: 'copy'
+
+    input:
+    path files
+
+    output:
+    path "multiqc_report.html"
+    path "multiqc_data"
+
+    script:
+    """
+    multiqc --no-ai .
+    """
+}
+
+workflow {
+    reads_ch = channel.fromPath(params.sample_sheet)
+        .splitCsv(header: true, sep: ",")
+        .map { row ->
+            def meta = [
+                sampleid: row.sample
+            ]
+            [meta, file(row.fastq_1, checkIfExists: true), file(row.fastq_2, checkIfExists: true)]
+        }
+        .groupTuple(by: 0)
+
+    ref_fasta_file = file(params.ref_fasta)
+    BWA_INDEX(ref_fasta_file)
+    SAMTOOLS_FAIDX(ref_fasta_file)
+
+    CONCAT_FASTQ(reads_ch)
+    ADAPTER_TRIM(CONCAT_FASTQ.out)
+    ALIGN_AND_SORT(ADAPTER_TRIM.out.reads, ref_fasta_file, BWA_INDEX.out)
+    MARK_DUPLICATES_AND_CRAM(ALIGN_AND_SORT.out, ref_fasta_file, SAMTOOLS_FAIDX.out)
+
+    multiqc_input_ch = channel.empty()
+        .mix(
+            ADAPTER_TRIM.out.fastqc.collect(),
+            ADAPTER_TRIM.out.log.collect(),
+            MARK_DUPLICATES_AND_CRAM.out.dedup_metrics.collect(),
+            MARK_DUPLICATES_AND_CRAM.out.flagstat.collect()
+        )
+        .collect()
+
+    MULTIQC(multiqc_input_ch)
+}
