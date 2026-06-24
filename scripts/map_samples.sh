@@ -2,7 +2,7 @@
 
 set -e
 
-REF_DIR="references"
+REF_DIR="reference"
 REF="${REF_DIR}/GRCh38_full_analysis_set_plus_decoy_hla.fa"
 FASTQ_DIR="fastq"
 SAMPLE="HG00100"
