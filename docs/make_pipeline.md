@@ -2,7 +2,7 @@
 
 The `scripts/Makefile` is a single-sample alignment workflow that runs the same steps as the Nextflow pipeline without requiring Nextflow, SLURM, or containers. It is useful for testing a single sample, debugging a failed step, or running on a workstation where the full cluster pipeline is not needed.
 
-It implements the same step order: FASTQ concatenation, adapter trimming, BWA alignment, coordinate sorting, duplicate marking, and CRAM conversion.
+It runs the same steps in the same order as the Nextflow pipeline.
 
 ## Requirements
 
@@ -32,7 +32,7 @@ If the BWA index files are missing, the Makefile will build them automatically b
 
 ## Parameters
 
-All parameters have defaults and are passed on the command line as `KEY=VALUE`.
+`SAMPLE`, `FASTQ_DIR`, and `REF` are required and have no defaults. Running `make -f scripts/Makefile` without them prints a usage message. The remaining parameters are optional. All are passed on the command line as `KEY=VALUE`.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
