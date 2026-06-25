@@ -23,9 +23,9 @@ A Nextflow DSL2 pipeline to map 1000 Genomes high-coverage WGS samples to the GR
 `samplesheet.csv`
 
 ```csv
-sample,run,fastq_1,fastq_2
-HG00100,ERR245024,/path/to/ERR245024_1.fastq.gz,/path/to/ERR245024_2.fastq.gz
-HG00100,ERR245028,/path/to/ERR245028_1.fastq.gz,/path/to/ERR245028_2.fastq.gz
+sample,fastq_1,fastq_2
+HG00100,/path/to/ERR245024_1.fastq.gz,/path/to/ERR245024_2.fastq.gz
+HG00100,/path/to/ERR245028_1.fastq.gz,/path/to/ERR245028_2.fastq.gz
 ```
 
 ### 2. Download reference data
