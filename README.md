@@ -28,23 +28,22 @@ HG00100,/path/to/ERR245024_1.fastq.gz,/path/to/ERR245024_2.fastq.gz
 HG00100,/path/to/ERR245028_1.fastq.gz,/path/to/ERR245028_2.fastq.gz
 ```
 
-### 2. Download reference data
+### 2. Download and index the reference genome (one-time setup)
 
-To download the reference genome assembly and HLA ALT index files, run:
-
-```bash
-make reference
-```
-
-Expected output:
+This step only needs to be done once. `download_reference` fetches the 1000 Genomes GRCh38 reference. `index` works with any FASTA and both targets have resume behaviour — they skip files that already exist.
 
 ```bash
-../reference/
-├── GRCh38_full_analysis_set_plus_decoy_hla.fa
-└── GRCh38_full_analysis_set_plus_decoy_hla.fa.alt
+make -f scripts/Makefile download_reference
+make -f scripts/Makefile index REF=reference/GRCh38_full_analysis_set_plus_decoy_hla.fa
 ```
 
-The indices can be built locally using `make index` or `make index-singularity`. Alternatively, the Nextflow pipeline will run the indexing tasks on your cluster as part of the workflow execution.
+If you have your own reference, skip `download_reference` and run `index` directly:
+
+```bash
+make -f scripts/Makefile index REF=/path/to/your/reference.fa
+```
+
+If your reference is already indexed, skip both steps and pass it directly to `--reference_fa`. The Nextflow pipeline can also run the indexing tasks on your cluster as part of the workflow execution if indices are missing.
 
 ### 3. Set pipeline parameters
 
@@ -63,7 +62,7 @@ params {
 ```bash
 nextflow run main.nf \
   --sample_sheet samplesheet.csv \
-  --reference_fa ../reference/GRCh38_full_analysis_set_plus_decoy_hla.fa \
+  --reference_fa /reference/GRCh38_full_analysis_set_plus_decoy_hla.fa \
   --outdir alignment-results \
   -profile slurm,singularity
 ```
@@ -75,7 +74,7 @@ The pipeline consists of the following main steps:
 - Genome index generation (BWA_INDEX / SAMTOOLS_FAIDX)
   - Builds BWA indices and faidx indices for the GRCh38 reference genome assembly.
   - Executed only if indices are missing.
-  - Output: `../reference/GRCh38_full_analysis_set_plus_decoy_hla.fa.*`
+  - Output: `/reference/GRCh38_full_analysis_set_plus_decoy_hla.fa.*`
 
 - Concatenate FASTQ (CONCAT_FASTQ)
   - Merges multiple lane/run FASTQ files for the same sample by concatenating the raw gzip files.
