@@ -1,0 +1,9 @@
+name: base
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconda::bwa=0.7.19
+  - bioconda::samtools=1.23.1
+  - bioconda::picard=3.4.0
+  - bioconda::trim-galore=2.2.0
