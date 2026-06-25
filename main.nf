@@ -3,7 +3,7 @@ nextflow.enable.dsl = 2
 
 process BWA_INDEX {
     tag "${fasta.name}"
-    container 'community.wave.seqera.io/library/bwa:0.7.19--f40bc2b40f6d8142'
+    container 'community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57'
 
     input:
     path fasta
@@ -19,7 +19,7 @@ process BWA_INDEX {
 
 process SAMTOOLS_FAIDX {
     tag "${fasta.name}"
-    container 'community.wave.seqera.io/library/samtools:1.23.1--4a697684755218e0'
+    container 'community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57'
 
     input:
     path fasta
@@ -35,7 +35,7 @@ process SAMTOOLS_FAIDX {
 
 process CONCAT_FASTQ {
     tag "${meta.sampleid}"
-    container 'community.wave.seqera.io/library/samtools:1.23.1--4a697684755218e0'
+    container 'community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57'
 
     input:
     tuple val(meta), path(fqs_1), path(fqs_2)
@@ -89,7 +89,7 @@ process ADAPTER_TRIM {
 
 process BWA_ALIGN {
     tag "${meta.sampleid}"
-    container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
+    container 'community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57'
 
     input:
     tuple val(meta), path(fastq_1), path(fastq_2)
@@ -110,7 +110,7 @@ process BWA_ALIGN {
 
 process SAMTOOLS_SORT {
     tag "${meta.sampleid}"
-    container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
+    container 'community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57'
 
     input:
     tuple val(meta), path(bam)
@@ -127,7 +127,7 @@ process SAMTOOLS_SORT {
 
 process MARK_DUPLICATES {
     tag "${meta.sampleid}"
-    container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
+    container 'community.wave.seqera.io/library/picard:3.4.0--a584ece94189d70b'
     publishDir { "${params.outdir}/${meta.sampleid}/qc" }, mode: 'copy', pattern: '*_dedup_metrics.txt'
 
     input:
@@ -151,7 +151,7 @@ process MARK_DUPLICATES {
 
 process SAMTOOLS_CRAM {
     tag "${meta.sampleid}"
-    container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
+    container 'community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57'
     publishDir { "${params.outdir}/${meta.sampleid}" }, mode: 'copy', pattern: '*.cram*'
     publishDir { "${params.outdir}/${meta.sampleid}/qc" }, mode: 'copy', pattern: '*_flagstat.txt'
 
