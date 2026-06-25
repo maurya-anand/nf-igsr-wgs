@@ -128,8 +128,7 @@ Tools:
 
 Container Images:
 
-- `community.wave.seqera.io/library/bwa:0.7.19--f40bc2b40f6d8142`
-- `community.wave.seqera.io/library/samtools:1.23.1--4a697684755218e0`
+- `community.wave.seqera.io/library/bwa_samtools:cf87be72f0989a57`
+- `community.wave.seqera.io/library/picard:3.4.0--a584ece94189d70b`
 - `community.wave.seqera.io/library/trim-galore:2.2.0--7c4d34af422b845e`
-- `community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f`
 - `community.wave.seqera.io/library/multiqc:1.35--1ad1ebcf6f617695`
