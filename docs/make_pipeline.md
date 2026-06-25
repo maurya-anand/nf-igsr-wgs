@@ -1,6 +1,6 @@
 # Standalone Mapping with GNU Make
 
-The `scripts/Makefile` is a single-sample alignment workflow that runs the same steps as the Nextflow pipeline without requiring Nextflow, SLURM, or containers. It is useful for testing a single sample, debugging a failed step, or running on a workstation where the full cluster pipeline is not needed.
+The `scripts/Makefile` is the single entry point for reference setup and single-sample alignment without Nextflow, SLURM, or containers. It is useful for testing a single sample, debugging a failed step, or running on a workstation where the full cluster pipeline is not needed.
 
 It runs the same steps in the same order as the Nextflow pipeline.
 
@@ -14,56 +14,80 @@ The following tools must be available on your PATH:
 - trim_galore
 - GNU make 4.3 or later
 
-## Reference Preparation
+## Targets
 
-You need a GRCh38 reference FASTA with BWA index files and a samtools faidx index built alongside it. If you have already run `make index` from the `nf-igsr-wgs/` directory, these files exist at:
+All targets are run from the `nf-igsr-wgs/` directory as `make -f scripts/Makefile <target> [parameters]`.
 
-```
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.amb
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.ann
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bwt
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.fai
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.pac
-../reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.sa
-```
-
-If the BWA index files are missing, the Makefile will build them automatically before alignment. This takes around 90 minutes for GRCh38.
+| Target | What it does | Parameters |
+|--------|-------------|------------|
+| `download_reference` | Download GRCh38 FASTA and ALT file | REF_DIR (optional) |
+| `index` | Build samtools faidx and BWA index | REF (required) |
+| `analyse` | Run the full alignment workflow | SAMPLE, FASTQ_DIR, REF (all required) |
+| `clean` | Remove intermediate BAM and FASTQ files | SAMPLE (required) |
 
 ## Parameters
 
-`SAMPLE`, `FASTQ_DIR`, and `REF` are required and have no defaults. Running `make -f scripts/Makefile` without them prints a usage message. The remaining parameters are optional. All are passed on the command line as `KEY=VALUE`.
-
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| REF_DIR | reference | Directory where the reference FASTA is downloaded |
 | SAMPLE | required | Sample name, used to name all output files |
 | FASTQ_DIR | required | Directory containing paired FASTQ files |
-| REF | required | Path to reference FASTA |
+| REF | required | Path to reference FASTA (for `index` and `analyse`) |
 | OUTDIR | results | Output directory |
 | THREADS | 16 | CPU threads for BWA, samtools sort, and CRAM conversion |
 | SORT_MEM | 4 | Memory per thread for samtools sort (GB) |
 | JVM_MEM | 28 | JVM heap size for Picard (GB) |
 
-The FASTQ_DIR must contain files matching `*_1.fastq.gz` and `*_2.fastq.gz`. Multiple files per direction are concatenated automatically before trimming.
+`FASTQ_DIR` must contain files matching `*_1.fastq.gz` and `*_2.fastq.gz`. Multiple files per direction are concatenated automatically before trimming.
 
-## Running
+## Reference Setup (one-time)
 
-Run from the `nf-igsr-wgs/` directory:
+`download_reference` and `index` are setup steps that need to be run once before any samples are analysed. They are not triggered automatically by `analyse` — if the reference or index files are missing when you run `analyse`, BWA will fail.
+
+Both targets have resume behaviour. If the FASTA or index files already exist on disk, Make skips those steps without re-running them.
+
+**Using the 1000 Genomes reference**
+
+`download_reference` fetches the GRCh38 1000G reference into `reference/` by default:
 
 ```bash
-make -f scripts/Makefile \
-    SAMPLE=HG00320 \
-    FASTQ_DIR=/path/to/HG00320/fastqs \
-    REF=/path/to/reference/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna
+make -f scripts/Makefile download_reference
+make -f scripts/Makefile index REF=reference/GRCh38_full_analysis_set_plus_decoy_hla.fa
 ```
 
-To change the output directory or adjust compute resources:
+To download into a different directory:
 
 ```bash
-make -f scripts/Makefile \
+make -f scripts/Makefile download_reference REF_DIR=/data/reference
+make -f scripts/Makefile index REF=/data/reference/GRCh38_full_analysis_set_plus_decoy_hla.fa
+```
+
+**Using your own reference**
+
+`index` works with any FASTA. If you already have a reference, skip `download_reference` and run `index` directly:
+
+```bash
+make -f scripts/Makefile index REF=/path/to/your/reference.fa
+```
+
+If your reference is already indexed, skip both steps and pass `REF` directly to `analyse`.
+
+## Running the Alignment
+
+```bash
+make -f scripts/Makefile analyse \
+    SAMPLE=HG00320 \
+    FASTQ_DIR=/path/to/HG00320/fastqs \
+    REF=../reference/GRCh38.fa
+```
+
+To adjust compute resources or the output directory:
+
+```bash
+make -f scripts/Makefile analyse \
     SAMPLE=HG00320 \
     FASTQ_DIR=/path/to/fastqs \
-    REF=/path/to/reference.fa \
+    REF=../reference/GRCh38.fa \
     OUTDIR=/scratch/results \
     THREADS=32 \
     SORT_MEM=6 \
@@ -74,9 +98,7 @@ make -f scripts/Makefile \
 
 Make checks whether each output file already exists before running its step. If a run is interrupted, re-running the same command resumes from where it left off. No flags or caches are needed.
 
-For example, if `HG00320_sorted.bam` already exists when you re-run, Make skips concatenation, trimming, and alignment and picks up from duplicate marking.
-
-Similarly, if the BWA index files are already present at the reference path, `bwa index` is skipped entirely.
+For example, if `HG00320_sorted.bam` already exists when you re-run, Make skips concatenation, trimming, and alignment and picks up from duplicate marking. If the BWA index files are already present, `bwa index` is skipped entirely.
 
 ## Output Structure
 
@@ -95,10 +117,10 @@ results/
         └── HG00320_flagstat.txt
 ```
 
-Intermediate BAM files are written to the working directory. They are not removed automatically on completion. To clean them up:
+Intermediate BAM files are written to the working directory and are not removed automatically. To clean them up:
 
 ```bash
-make -f scripts/Makefile SAMPLE=HG00320 clean
+make -f scripts/Makefile clean SAMPLE=HG00320
 ```
 
 This removes the concatenated FASTQs, trimmed FASTQs, and all intermediate BAMs. The CRAM outputs in `OUTDIR` are preserved.
