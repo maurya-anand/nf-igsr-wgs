@@ -13,6 +13,7 @@ process BWA_INDEX {
 
     script:
     """
+    set -euo pipefail
     bwa index ${fasta}
     """
 }
@@ -29,6 +30,7 @@ process SAMTOOLS_FAIDX {
 
     script:
     """
+    set -euo pipefail
     samtools faidx ${fasta}
     """
 }
@@ -47,6 +49,7 @@ process CONCAT_FASTQ {
     def fq1_list = fqs_1 instanceof List ? fqs_1.sort().join(' ') : fqs_1
     def fq2_list = fqs_2 instanceof List ? fqs_2.sort().join(' ') : fqs_2
     """
+    set -euo pipefail
     cat ${fq1_list} > ${meta.sampleid}_1.fastq.gz
     cat ${fq2_list} > ${meta.sampleid}_2.fastq.gz
     """
@@ -103,6 +106,7 @@ process BWA_ALIGN {
     script:
     def rg_string = "@RG\\tID:${meta.sampleid}\\tPL:ILLUMINA\\tSM:${meta.sampleid}\\tLB:${meta.sampleid}_lib"
     """
+    set -euo pipefail
     bwa mem -Y -K 100000000 -t ${task.cpus} -R "${rg_string}" ${reference_fa} ${fastq_1} ${fastq_2} | \
     samtools view -@ ${task.cpus} -b -o ${meta.sampleid}.bam -
     """
@@ -121,6 +125,7 @@ process SAMTOOLS_SORT {
     script:
     def sort_mem = task.memory ? ((task.memory.giga - 4) / task.cpus) as int : 4
     """
+    set -euo pipefail
     samtools sort -@ ${task.cpus} -m ${sort_mem}G -T \$PWD/${meta.sampleid}_tmp -o ${meta.sampleid}_sorted.bam ${bam}
     """
 }
@@ -140,6 +145,7 @@ process MARK_DUPLICATES {
     script:
     def jvm_mem = task.memory ? (task.memory.giga - 4) as int : 6
     """
+    set -euo pipefail
     picard -Xmx${jvm_mem}g MarkDuplicates \
         MAX_RECORDS_IN_RAM=2000000 \
         VALIDATION_STRINGENCY=SILENT \
@@ -166,6 +172,7 @@ process SAMTOOLS_CRAM {
 
     script:
     """
+    set -euo pipefail
     samtools view -@ ${task.cpus} -C -T ${reference_fa} -o ${meta.sampleid}.cram ${dedup_bam}
     samtools index ${meta.sampleid}.cram
     samtools flagstat ${meta.sampleid}.cram > ${meta.sampleid}_flagstat.txt
@@ -186,6 +193,7 @@ process MULTIQC {
 
     script:
     """
+    set -euo pipefail
     multiqc --no-ai .
     """
 }
