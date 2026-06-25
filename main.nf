@@ -95,7 +95,7 @@ process BWA_ALIGN {
     tuple val(meta), path(fastq_1), path(fastq_2)
     path reference_fa
     path bwa_indices
-    path ref_alt
+    path ref_alt, optional: true
 
     output:
     tuple val(meta), path("${meta.sampleid}.bam")
@@ -202,7 +202,8 @@ workflow {
         .groupTuple(by: 0)
 
     reference_fa_file  = file(params.reference_fa)
-    reference_alt_file = file(params.reference_fa + '.alt')
+    def alt_path = new File(params.reference_fa + '.alt')
+    reference_alt_file = alt_path.exists() ? file(params.reference_fa + '.alt') : []
     BWA_INDEX(reference_fa_file)
     SAMTOOLS_FAIDX(reference_fa_file)
 
