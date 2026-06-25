@@ -1,8 +1,6 @@
-# Standalone Mapping with GNU Make
+# Make Pipeline
 
-The `scripts/Makefile` is the single entry point for reference setup and single-sample alignment without Nextflow, SLURM, or containers. It is useful for testing a single sample, debugging a failed step, or running on a workstation where the full cluster pipeline is not needed.
-
-It runs the same steps in the same order as the Nextflow pipeline.
+The `scripts/Makefile` is a lightweight pipeline for aligning a single Illumina paired-end sequencing sample (WGS or WES) to GRCh38. It performs adapter trimming, BWA-MEM alignment, coordinate sorting, duplicate marking, and CRAM conversion — the same steps in the same order as the Nextflow pipeline, but without requiring Nextflow, SLURM, or containers. It is suitable for testing a single sample, debugging a failed step, or running on a workstation outside the cluster environment.
 
 ## Requirements
 
