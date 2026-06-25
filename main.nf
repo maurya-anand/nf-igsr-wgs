@@ -56,8 +56,8 @@ process ADAPTER_TRIM {
     tag "$meta.sampleid"
     container 'community.wave.seqera.io/library/trim-galore:2.2.0--7c4d34af422b845e'
 
-    publishDir "${params.outdir}/${meta.sampleid}/fastqc", mode: 'copy', pattern: "*_fastqc.{zip,html}"
-    publishDir "${params.outdir}/${meta.sampleid}/trim_galore", mode: 'copy', pattern: "*trimming_report.txt"
+    publishDir { "${params.outdir}/${meta.sampleid}/fastqc" }, mode: 'copy', pattern: "*_fastqc.{zip,html}"
+    publishDir { "${params.outdir}/${meta.sampleid}/trim_galore" }, mode: 'copy', pattern: "*trimming_report.txt"
 
     input:
     tuple val(meta), path(fastq_1), path(fastq_2)
@@ -95,7 +95,7 @@ process BWA_ALIGN {
     tuple val(meta), path(fastq_1), path(fastq_2)
     path reference_fa
     path bwa_indices
-    path ref_alt, optional: true
+    path ref_alt
 
     output:
     tuple val(meta), path("${meta.sampleid}.bam")
@@ -128,7 +128,7 @@ process SAMTOOLS_SORT {
 process MARK_DUPLICATES {
     tag "${meta.sampleid}"
     container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
-    publishDir "${params.outdir}/${meta.sampleid}/qc", mode: 'copy', pattern: '*_dedup_metrics.txt'
+    publishDir { "${params.outdir}/${meta.sampleid}/qc" }, mode: 'copy', pattern: '*_dedup_metrics.txt'
 
     input:
     tuple val(meta), path(sorted_bam)
@@ -152,8 +152,8 @@ process MARK_DUPLICATES {
 process SAMTOOLS_CRAM {
     tag "${meta.sampleid}"
     container 'community.wave.seqera.io/library/bwa_picard_samtools:83e2dd7945f17b8f'
-    publishDir "${params.outdir}/${meta.sampleid}", mode: 'copy', pattern: '*.cram*'
-    publishDir "${params.outdir}/${meta.sampleid}/qc", mode: 'copy', pattern: '*_flagstat.txt'
+    publishDir { "${params.outdir}/${meta.sampleid}" }, mode: 'copy', pattern: '*.cram*'
+    publishDir { "${params.outdir}/${meta.sampleid}/qc" }, mode: 'copy', pattern: '*_flagstat.txt'
 
     input:
     tuple val(meta), path(dedup_bam)
