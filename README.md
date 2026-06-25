@@ -85,17 +85,23 @@ The pipeline consists of the following main steps:
   - Trims adapter sequences from the reads using `trim_galore` with Cutadapt and FastQC.
   - Output: trimmed reads and FastQC report.
 
-- Alignment and sorting (ALIGN_AND_SORT)
+- BWA Alignment (BWA_ALIGN)
   - Aligns trimmed reads using ALT-aware `bwa mem`.
-  - Pipes alignments directly to `samtools sort` to avoid writing intermediate BAMs.
+  - Output: `${sample_id}.bam`
+
+- Coordinate Sorting (SAMTOOLS_SORT)
+  - Sorts aligned reads by coordinates using `samtools sort`.
   - Keeps temporary sort files in the execution directory to protect system `/tmp` partitions.
   - Output: `${sample_id}_sorted.bam`
 
-- Duplicate marking and CRAM conversion (MARK_DUPLICATES_AND_CRAM)
+- Duplicate marking (MARK_DUPLICATES)
   - Identifies duplicate molecules using `picard MarkDuplicates`.
-  - Converts alignments to CRAM using `samtools view`.
-  - Indexing CRAM and calculating metrics using `samtools flagstat`.
-  - Output: `${sample_id}.cram`, `${sample_id}.cram.crai`, `${sample_id}_flagstat.txt`, and `${sample_id}_dedup_metrics.txt`
+  - Output: `${sample_id}_dedup.bam` and `${sample_id}_dedup_metrics.txt`
+
+- CRAM conversion (SAMTOOLS_CRAM)
+  - Converts alignments to CRAM format using `samtools view`.
+  - Indexes CRAM alignments and calculates metrics using `samtools flagstat`.
+  - Output: `${sample_id}.cram`, `${sample_id}.cram.crai`, and `${sample_id}_flagstat.txt`
 
 - Summary (MULTIQC)
   - Aggregates QC reports from Trim Galore, FastQC, Picard MarkDuplicates, and Samtools flagstat.
