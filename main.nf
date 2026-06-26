@@ -123,7 +123,7 @@ process SAMTOOLS_SORT {
     tuple val(meta), path("${meta.sampleid}_sorted.bam")
 
     script:
-    def sort_mem = task.memory ? ((task.memory.giga - 4) / task.cpus) as int : 4
+    def sort_mem = task.memory ? ((task.memory.giga * 0.8 / task.cpus) as int) : 4
     """
     set -euo pipefail
     samtools sort -@ ${task.cpus} -m ${sort_mem}G -T \$PWD/${meta.sampleid}_tmp -o ${meta.sampleid}_sorted.bam ${bam}
